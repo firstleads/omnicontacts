@@ -134,11 +134,6 @@ describe OmniContacts::Importer::Gmail do
       gmail.should_receive(:https_get) do |host, path, params, headers|
         headers["GData-Version"].should eq("3.0")
         headers["Authorization"].should eq("#{token_type} #{token}")
-        self_response
-      end
-      gmail.should_receive(:https_get) do |host, path, params, headers|
-        headers["GData-Version"].should eq("3.0")
-        headers["Authorization"].should eq("#{token_type} #{token}")
         contacts_as_json
       end
       gmail.fetch_contacts_using_access_token token, token_type
@@ -148,7 +143,6 @@ describe OmniContacts::Importer::Gmail do
     end
 
     it "should correctly parse id, name, email, gender, birthday, profile picture and relation for 1st contact" do
-      gmail.should_receive(:https_get)
       gmail.should_receive(:https_get).and_return(contacts_as_json)
       result = gmail.fetch_contacts_using_access_token token, token_type
 
@@ -166,7 +160,6 @@ describe OmniContacts::Importer::Gmail do
     end
 
     it "should correctly parse id, name, email, gender, birthday, profile picture, snailmail address, phone and relation for 2nd contact" do
-      gmail.should_receive(:https_get)
       gmail.should_receive(:https_get).and_return(contacts_as_json)
       result = gmail.fetch_contacts_using_access_token token, token_type
       result.size.should be(2)
@@ -188,22 +181,30 @@ describe OmniContacts::Importer::Gmail do
       result.first[:phone_number].should eq('653157688')
     end
 
-    it "should correctly parse and set logged in user information" do
-      gmail.should_receive(:https_get).and_return(self_response)
-      gmail.should_receive(:https_get).and_return(contacts_as_json)
+    context "when sending updated-min" do
+      let(:gmail) { OmniContacts::Importer::Gmail.new({}, "client_id", "client_secret", { updated_min: Time.now - (24 * 3600 * 7) }) }
 
-      gmail.fetch_contacts_using_access_token token, token_type
-
-      user = gmail.instance_variable_get(:@env)["omnicontacts.user"]
-      user.should_not be_nil
-      user[:id].should eq("16482944006464829443")
-      user[:first_name].should eq("Chris")
-      user[:last_name].should eq("Johnson")
-      user[:name].should eq("Chris Johnson")
-      user[:email].should eq("chrisjohnson@gmail.com")
-      user[:gender].should eq("male")
-      user[:birthday].should eq({ :day => 21, :month => 06, :year => 1982 })
-      user[:profile_picture].should eq("https://lh3.googleusercontent.com/-b8aFbTBM/AAAAAAI/IWA/vsek/photo.jpg")
+      it "should correctly parse id, name, email, gender, birthday, profile picture, snailmail address, phone and relation for 2nd contact" do
+        gmail.should_receive(:https_get).and_return(contacts_as_json)
+        result = gmail.fetch_contacts_using_access_token token, token_type
+        result.size.should be(2)
+        result.last[:id].should eq('http://www.google.com/m8/feeds/contacts/logged_in_user%40gmail.com/base/1')
+        result.last[:first_name].should eq('Emilia')
+        result.last[:last_name].should eq('Fox')
+        result.last[:name].should eq("Emilia Fox")
+        result.last[:email].should eq("emilia.fox@gmail.com")
+        result.last[:gender].should eq("female")
+        result.last[:birthday].should eq({ :day => 10, :month => 02, :year => 1974 })
+        result.last[:profile_picture].should be_nil
+        result.last[:relation].should eq('spouse')
+        result.first[:address_1].should eq('1313 Trashview Court')
+        result.first[:address_2].should eq('Apt. 13')
+        result.first[:city].should eq('Nowheresville')
+        result.first[:region].should eq('OK')
+        result.first[:country].should eq('VA')
+        result.first[:postcode].should eq('66666')
+        result.first[:phone_number].should eq('653157688')
+      end
     end
 
     context "when address_1 is nil" do
@@ -297,7 +298,6 @@ describe OmniContacts::Importer::Gmail do
       }
 
       it "should correctly parse id, name, email, gender, birthday, profile picture, snailmail address, phone and relation for 2nd contact" do
-        gmail.should_receive(:https_get)
         gmail.should_receive(:https_get).and_return(contacts_as_json)
         result = gmail.fetch_contacts_using_access_token token, token_type
         result.size.should be(2)
