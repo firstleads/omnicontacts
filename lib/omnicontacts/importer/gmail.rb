@@ -22,7 +22,7 @@ module OmniContacts
       end
 
       def fetch_contacts_using_access_token access_token, token_type
-        fetch_current_user(access_token, token_type)
+        # fetch_current_user(access_token, token_type)
         contacts_response = https_get(@contacts_host, @contacts_path, contacts_req_params, contacts_req_headers(access_token, token_type))
         contacts_from_response(contacts_response, access_token)
       end
@@ -115,7 +115,7 @@ module OmniContacts
 
             new_address[:address_1] = address['gd$street']['$t'] if address['gd$street']
             new_address[:address_1] = address['gd$formattedAddress']['$t'] if new_address[:address_1].nil? && address['gd$formattedAddress']
-            if new_address[:address_1].index("\n")
+            if !new_address[:address_1].nil? && new_address[:address_1].index("\n")
               parts = new_address[:address_1].split("\n")
               new_address[:address_1] = parts.first
               # this may contain city/state/zip if user jammed it all into one string.... :-(
