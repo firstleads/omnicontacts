@@ -16,9 +16,10 @@ module OmniContacts
         @scope = (args[3] && args[3][:scope]) || "https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo#email https://www.googleapis.com/auth/userinfo.profile"
         @contacts_host = "www.google.com"
         @contacts_path = "/m8/feeds/contacts/default/full"
-        @max_results =  (args[3] && args[3][:max_results]) || 100
+        @max_results = (args[3] && args[3][:max_results]) || 100
         @self_host = "www.googleapis.com"
         @profile_path = "/oauth2/v3/userinfo"
+        @request_params = (args[3] && args[3][:request_params]) || {}
       end
 
       def fetch_contacts_using_access_token access_token, token_type
@@ -36,11 +37,15 @@ module OmniContacts
       private
 
       def contacts_req_params
-        {'max-results' => @max_results.to_s, 'alt' => 'json'}
+        default_contacts_req_params.merge(@request_params)
+      end
+
+      def default_contacts_req_params
+        { 'max-results' => @max_results.to_s, 'alt' => 'json' }
       end
 
       def contacts_req_headers token, token_type
-        {"GData-Version" => "3.0", "Authorization" => "#{token_type} #{token}"}
+        { "GData-Version" => "3.0", "Authorization" => "#{token_type} #{token}" }
       end
 
       def contacts_from_response(response_as_json, access_token)
@@ -59,7 +64,7 @@ module OmniContacts
                       :emails => nil,
                       :gender => nil,
                       :birthday => nil,
-                      :profile_picture=> nil,
+                      :profile_picture => nil,
                       :relation => nil,
                       :addresses => nil,
                       :phone_numbers => nil,
@@ -73,16 +78,16 @@ module OmniContacts
             contact[:first_name] = normalize_name(entry['gd$name']['gd$givenName']['$t']) if gd_name['gd$givenName']
             contact[:last_name] = normalize_name(entry['gd$name']['gd$familyName']['$t']) if gd_name['gd$familyName']
             contact[:name] = normalize_name(entry['gd$name']['gd$fullName']['$t']) if gd_name['gd$fullName']
-            contact[:name] = full_name(contact[:first_name],contact[:last_name]) if contact[:name].nil?
+            contact[:name] = full_name(contact[:first_name], contact[:last_name]) if contact[:name].nil?
           end
 
           contact[:emails] = []
           entry['gd$email'].each do |email|
             if email['rel']
               split_index = email['rel'].index('#')
-              contact[:emails] << {:name => email['rel'][split_index + 1, email['rel'].length - 1], :email => email['address']}
+              contact[:emails] << { :name => email['rel'][split_index + 1, email['rel'].length - 1], :email => email['address'] }
             elsif email['label']
-              contact[:emails] << {:name => email['label'], :email => email['address']}
+              contact[:emails] << { :name => email['label'], :email => email['address'] }
             end
           end if entry['gd$email']
 
@@ -91,10 +96,10 @@ module OmniContacts
           contact[:first_name], contact[:last_name], contact[:name] = email_to_name(contact[:name]) if !contact[:name].nil? && contact[:name].include?('@')
           contact[:first_name], contact[:last_name], contact[:name] = email_to_name(contact[:emails][0][:email]) if (contact[:name].nil? && contact[:emails][0] && contact[:emails][0][:email])
           #format - year-month-date
-          contact[:birthday] = birthday(entry['gContact$birthday']['when'])  if entry['gContact$birthday']
+          contact[:birthday] = birthday(entry['gContact$birthday']['when']) if entry['gContact$birthday']
 
           # value is either "male" or "female"
-          contact[:gender] = entry['gContact$gender']['value']  if entry['gContact$gender']
+          contact[:gender] = entry['gContact$gender']['value'] if entry['gContact$gender']
 
           if entry['gContact$relation']
             if entry['gContact$relation'].is_a?(Hash)
@@ -108,9 +113,9 @@ module OmniContacts
           entry['gd$structuredPostalAddress'].each do |address|
             if address['rel']
               split_index = address['rel'].index('#')
-              new_address = {:name => address['rel'][split_index + 1, address['rel'].length - 1]}
+              new_address = { :name => address['rel'][split_index + 1, address['rel'].length - 1] }
             elsif address['label']
-              new_address = {:name => address['label']}
+              new_address = { :name => address['label'] }
             end
 
             new_address[:address_1] = address['gd$street']['$t'] if address['gd$street']
@@ -142,9 +147,9 @@ module OmniContacts
           entry['gd$phoneNumber'].each do |phone_number|
             if phone_number['rel']
               split_index = phone_number['rel'].index('#')
-              contact[:phone_numbers] << {:name => phone_number['rel'][split_index + 1, phone_number['rel'].length - 1], :number => phone_number['$t']}
+              contact[:phone_numbers] << { :name => phone_number['rel'][split_index + 1, phone_number['rel'].length - 1], :number => phone_number['$t'] }
             elsif phone_number['label']
-              contact[:phone_numbers] << {:name => phone_number['label'], :number => phone_number['$t']}
+              contact[:phone_numbers] << { :name => phone_number['label'], :number => phone_number['$t'] }
             end
           end if entry['gd$phoneNumber']
 
@@ -164,9 +169,9 @@ module OmniContacts
             contact[:dates] = []
             entry['gContact$event'].each do |event|
               if event['rel']
-                contact[:dates] << {:name => event['rel'], :date => birthday(event['gd$when']['startTime'])}
+                contact[:dates] << { :name => event['rel'], :date => birthday(event['gd$when']['startTime']) }
               elsif event['label']
-                contact[:dates] << {:name => event['label'], :date => birthday(event['gd$when']['startTime'])}
+                contact[:dates] << { :name => event['label'], :date => birthday(event['gd$when']['startTime']) }
               end
             end
           end
@@ -178,16 +183,16 @@ module OmniContacts
 
           contacts << contact if contact[:name]
         end
-        contacts.uniq! {|c| c[:email] || c[:profile_picture] || c[:name]}
+        contacts.uniq! { |c| c[:email] || c[:profile_picture] || c[:name] }
         contacts
       end
 
       def current_user me, access_token, token_type
         return nil if me.nil?
         me = JSON.parse(me)
-        user = {:id => me['id'], :email => me['email'], :name => me['name'], :first_name => me['given_name'],
-                :last_name => me['family_name'], :gender => me['gender'], :birthday => birthday(me['birthday']), :profile_picture => me["picture"],
-                :access_token => access_token, :token_type => token_type
+        user = { :id => me['id'], :email => me['email'], :name => me['name'], :first_name => me['given_name'],
+                 :last_name => me['family_name'], :gender => me['gender'], :birthday => birthday(me['birthday']), :profile_picture => me["picture"],
+                 :access_token => access_token, :token_type => token_type
         }
         user
       end
