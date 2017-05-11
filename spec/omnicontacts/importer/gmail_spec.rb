@@ -181,6 +181,32 @@ describe OmniContacts::Importer::Gmail do
       result.first[:phone_number].should eq('653157688')
     end
 
+    context "when sending updated-min" do
+      let(:gmail) { OmniContacts::Importer::Gmail.new({}, "client_id", "client_secret", { updated_min: Time.now - (24 * 3600 * 7) }) }
+
+      it "should correctly parse id, name, email, gender, birthday, profile picture, snailmail address, phone and relation for 2nd contact" do
+        gmail.should_receive(:https_get).and_return(contacts_as_json)
+        result = gmail.fetch_contacts_using_access_token token, token_type
+        result.size.should be(2)
+        result.last[:id].should eq('http://www.google.com/m8/feeds/contacts/logged_in_user%40gmail.com/base/1')
+        result.last[:first_name].should eq('Emilia')
+        result.last[:last_name].should eq('Fox')
+        result.last[:name].should eq("Emilia Fox")
+        result.last[:email].should eq("emilia.fox@gmail.com")
+        result.last[:gender].should eq("female")
+        result.last[:birthday].should eq({ :day => 10, :month => 02, :year => 1974 })
+        result.last[:profile_picture].should be_nil
+        result.last[:relation].should eq('spouse')
+        result.first[:address_1].should eq('1313 Trashview Court')
+        result.first[:address_2].should eq('Apt. 13')
+        result.first[:city].should eq('Nowheresville')
+        result.first[:region].should eq('OK')
+        result.first[:country].should eq('VA')
+        result.first[:postcode].should eq('66666')
+        result.first[:phone_number].should eq('653157688')
+      end
+    end
+
     context "when address_1 is nil" do
       let(:contacts_as_json) {
         '{"version":"1.0","encoding":"UTF-8",

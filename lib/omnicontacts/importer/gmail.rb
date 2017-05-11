@@ -1,3 +1,4 @@
+require "time"
 require "omnicontacts/parse_utils"
 require "omnicontacts/middleware/oauth2"
 
@@ -19,7 +20,7 @@ module OmniContacts
         @max_results = (args[3] && args[3][:max_results]) || 100
         @self_host = "www.googleapis.com"
         @profile_path = "/oauth2/v3/userinfo"
-        @request_params = (args[3] && args[3][:request_params]) || {}
+        @updated_min = (args[3] && args[3][:updated_min]) || {}
       end
 
       def fetch_contacts_using_access_token access_token, token_type
@@ -30,7 +31,8 @@ module OmniContacts
       private
 
       def contacts_req_params
-        default_contacts_req_params.merge(@request_params)
+        return default_contacts_req_params if @updated_min.nil?
+        default_contacts_req_params.merge('updated-min' => @updated_min.iso8601)
       end
 
       def default_contacts_req_params
