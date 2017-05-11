@@ -20,7 +20,7 @@ module OmniContacts
         @max_results = (args[3] && args[3][:max_results]) || 100
         @self_host = "www.googleapis.com"
         @profile_path = "/oauth2/v3/userinfo"
-        @updated_min = (args[3] && args[3][:updated_min]) || {}
+        @updated_min = (args[3] && args[3][:updated_min]) || nil
       end
 
       def fetch_contacts_using_access_token access_token, token_type
